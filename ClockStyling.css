@@ -1,0 +1,26 @@
+	body{
+		background: black;
+		
+	}
+	
+	#clock{
+		color: red;
+		font-family: Orbitron;
+		text-align: center;
+		font-size: 100px;
+	}
+	
+	#date{
+		color: red;
+		font-family: Orbitron;
+		text-align: center;
+		font-size: 75px;
+	}
+	
+	#questions{
+		color: red;
+		font-family: Orbitron;
+		text-align: center;
+		font-size: 50px;
+		
+	}

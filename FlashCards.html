@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Flash Cards</title>
+		<link rel='stylesheet' type='text/css' href='FlashCardsStyles.css'>
+		<script src="FlashCardsFunctions.js"></script>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+	</head>
+	
+	<body>
+
+		<div id=questions>
+			<p>Pick which operations you would like to work with. When dividing, please round to the hundedths place if needed.</p>
+			<form>
+			  <input type="checkbox" id="add">Addition
+			  <input type="checkbox" id="sub">Subtraction
+			  <input type="checkbox" id="mult">Multiplication
+			  <input type="checkbox" id="div">Division
+			</form>
+			<p>Enter the value for the max number you would like to work with. Start Mathing starts, and can restart, the fun!</p>
+			<input type="text" id="max" value="">
+			
+		</div>
+		
+		
+		<div id="math">
+		<button onclick="reflip(); initVals(); genEquation(); getAnswer();   "/> 
+		Start Mathing!</button>
+		<div id="error"></div>
+		</br>
+		</br>
+		<div class="flip-card">
+			<div class="flip-card-inner">
+				<div class="flip-card-front">
+					<div id="equation"></div>
+				</div>
+			<div class="flip-card-back">
+			  <div id="solution"></div>
+			  <div id="correct"></div>
+			  <div id="incorrect"></div>
+			  <button id="next" onclick="genEquation(); flip(); getAnswer();"/> 
+			Next Problem</button>
+			
+			</div>
+		  </div>
+		</div>
+		</div>
+		
+		</br>
+		</br>
+		<div id="end">
+		
+			<input type="text" id="answer" autofocus value="">
+			
+			
+			<button id="check" onclick="check(); flip();"/> 
+			Check your answer!</button>
+			</br>
+			</br>
+			<div id="numCorrect"></div>
+		</div>
+	</body>
+</html>

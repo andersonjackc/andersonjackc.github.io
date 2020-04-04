@@ -1,0 +1,91 @@
+	div.invisible{
+		
+	}
+	
+	body{
+		background-image: url('background.jpg');
+	}
+	
+	#equation{
+		font-size: 100px;
+	}
+	
+	#correct{
+		color: #44c785;
+		font-size: 25px;
+	}
+	
+	#incorrect{
+		color: #ffa600;
+		font-size: 25px;
+	}
+	
+	#questions{
+		text-align: center;
+		font-size: 25px;
+	}
+	
+	#end{
+		text-align: center;
+	}
+	
+	#error{
+		text-align: center;
+		font-size: 25px;
+		color: #ffa600;
+	}
+	
+	#math{
+		text-align: center;
+	}
+	
+	#numCorrect{
+		font-size: 25px;
+	}
+	
+	
+	.flip-card {
+	  background-color: transparent;
+	  width: 300px;
+	  height: 300px;
+	  perspective: 1000px;
+	  display: inline-block;
+	  
+	}
+
+	.flip-card-inner {
+	  position: absolute;
+	  width: 100%;
+	  height: 100%;
+	  text-align: center;
+	  transition: transform 0.9s;
+	  transform-style: preserve-3d;
+	  box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
+	}
+	
+	.flip-card-inner.flipped{
+		transform: rotateX(180deg);
+	}
+
+	.flip-card-front, .flip-card-back {
+	  position: absolute;
+	  width: 100%;
+	  height: 100%;
+	  
+	  -webkit-backface-visibility: hidden;
+	  backface-visibility: hidden;
+	  overflow: auto;
+	}
+
+	.flip-card-front {
+	  background-color: #2980b9;
+	  color: black;
+	  line-height: 250px;
+	}
+
+	.flip-card-back {
+	  background-color: #2980b9;
+	  color: black;
+	  font-size: 100px;
+	  transform: rotateX(180deg);
+	}
