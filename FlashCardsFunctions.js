@@ -126,7 +126,7 @@ function check(){
 			
 		}
 		
-		if(answer == correctAnswer){
+		if(answer != "" && answer == correctAnswer){
 			numCorrect++;
 			document.getElementById("correct").innerHTML = "Correct!";
 			document.getElementById("incorrect").innerHTML = "";
