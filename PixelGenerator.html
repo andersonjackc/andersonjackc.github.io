@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pixel Grid Generator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+
+    h1 {
+      color: #333;
+      margin-top: 20px;
+    }
+
+    input,
+    select,
+    button {
+      padding: 8px;
+      margin: 10px;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background-color: white;
+    }
+
+    button {
+      background-color: #4CAF50;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    input[type="file"] {
+      font-size: 14px;
+    }
+
+    label {
+      font-size: 16px;
+    }
+
+    .color-display {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .color-display label {
+      font-size: 18px;
+      margin-right: 10px;
+    }
+
+    svg {
+      border: 1px solid #ccc;
+      margin-top: 20px;
+      cursor: pointer;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+      max-width: 100%;
+      height: auto;
+      background-color: #fff;
+    }
+
+    #saveButton {
+      display: none;
+      margin-top: 10px;
+    }
+
+    #selectedColor,
+    #gridColor {
+      width: 50px;
+      height: 50px;
+      padding: 0;
+      border: 1px solid #ccc;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Pixel Grid Generator</h1>
+
+  <div class="options-container">
+    <label>
+      Upload Image:
+      <input type="file" id="upload" accept="image/png, image/jpeg" />
+    </label><br />
+
+    <label>
+      Grid Size (Number of Squares):
+      <input type="number" id="gridSize" value="10" min="1" />
+    </label><br />
+    <div class="color-display">
+      <label>
+        Grid Color:</label>
+      <input type="color" id="gridColor" value="#000000" />
+    </div>
+
+    <label for="samplingMethod">Sampling Method:</label>
+    <select id="samplingMethod">
+      <option value="firstPixel">First Pixel</option>
+      <option value="averagePixel">Average Pixel</option>
+      <option value="medianPixel">Median Pixel</option>
+      <option value="posterizePixel">Posterize Pixel</option>
+      <option value="kMeansPixel">K Means Clustering Pixel</option>
+      <option value="ditheringPixel">Dithering Pixel</option>
+    </select><br />
+
+    <div id="ditheringOptionsContainer" style="display: none;">
+      <label for="ditheringMethod">Dithering Method:</label>
+      <select id="ditheringMethod">
+          <option value="16">16 Colors</option>
+          <option value="32">32 Colors</option>
+          <option value="216">216 Colors</option>
+          <option value="4096">4096 Colors</option>
+          <option value="grayscale">Grayscale</option>
+      </select><br />   
+    </div>
+    <div id="posterizeValuesContainer" style="display: none;">
+      <label>
+        Posterization Levels:
+        <input type="number" id="posterizeNum" value="4" min="2" />
+      </label><br />
+    </div>
+    <div id="kMeansClusterContainer" style="display: none;">
+      <label>
+        K Means Clusters:
+        <input type="number" id="kClusters" value="4" min="1" />
+      </label><br />
+    </div>
+  </div>
+
+  <div class="button-container">
+    <button onclick="generatePixelGrid()">Generate</button>
+    <button id="saveButton" onclick="saveImage()">Save Image</button>
+  </div>
+
+  <div class="color-display">
+    <label>Selected Square Color:</label>
+    <input type="color" id="selectedColor" disabled />
+    <span id="hexColor">#000000</span>
+  </div>
+
+  <svg id="svgCanvas"></svg>
+
+  <script>
+    let storedImageData, gridSize, squareWidth, squareHeight, imgWidth, imgHeight;
+    const svgCanvas = document.getElementById('svgCanvas');
+
+    const palette16 = [
+      [0, 0, 0], [255, 0, 0], [0, 255, 0], [0, 0, 255],
+      [255, 255, 0], [0, 255, 255], [255, 0, 255], [192, 192, 192],
+      [128, 128, 128], [255, 165, 0], [255, 20, 147], [139, 69, 19],
+      [255, 105, 180], [220, 20, 60], [0, 128, 128], [255, 255, 255]
+    ];
+
+    const palette32 = [
+      [0, 0, 0], [85, 85, 85], [170, 170, 170], [255, 255, 255],
+      [0, 0, 170], [85, 85, 255], [170, 170, 255], [0, 170, 0],
+      [85, 255, 85], [170, 255, 170], [255, 85, 85], [255, 170, 170],
+      [255, 255, 0], [255, 170, 0], [170, 85, 0], [85, 0, 0],
+      [0, 85, 0], [0, 170, 85], [0, 255, 170], [85, 170, 255],
+      [170, 85, 255], [255, 0, 255], [170, 0, 170], [85, 0, 85],
+      [0, 255, 255], [0, 170, 255], [0, 85, 170], [255, 85, 255],
+      [255, 170, 255], [170, 255, 255], [85, 255, 255], [255, 255, 85]
+    ];
+
+    const palette216 = [];
+    for (let r = 0; r <= 255; r += 51) {
+        for (let g = 0; g <= 255; g += 51) {
+            for (let b = 0; b <= 255; b += 51) {
+                palette216.push([r, g, b]);
+            }
+        }
+    }
+
+    const palette4096 = [];
+    for (let r = 0; r <= 255; r += 17) {
+        for (let g = 0; g <= 255; g += 17) {
+            for (let b = 0; b <= 255; b += 17) {
+                palette4096.push([r, g, b]);
+            }
+        }
+    }
+
+    const grayscale256 = Array.from({ length: 256 }, (_, i) => [i, i, i]);
+
+    function generatePixelGrid() {
+      // TODO: Input validation should be done on gridSize, posterizeNum, and kClusters at the least.  
+      // Too low of a gridSize, <1, causes an error.  Too high, >150, takes a long time... not as a big of an issue
+      // Too low of a posterizeNum and kClusters causes an error in their respective functions.
+      const file = document.getElementById('upload').files[0];
+      gridSize = parseInt(document.getElementById('gridSize').value, 10);
+      const gridColor = document.getElementById('gridColor').value;
+      const samplingMethod = document.getElementById('samplingMethod').value;
+      const ditheringMethod = document.getElementById('ditheringMethod').value;
+      const posterizeNum = document.getElementById('posterizeNum').value;
+      const kClusters = document.getElementById('kClusters').value;
+
+      if (!file) {
+        alert('Please upload an image.');
+        return;
+      }
+
+      if (gridSize < 1){
+        alert("Grid Size must be a positive value!");
+        return;
+      }
+
+      if (samplingMethod == "posterizePixel" && parseInt(posterizeNum, 10) <= 1){
+        alert("Posterization Levels must be greater than 1")
+        return;
+      }
+
+      if (samplingMethod == "kMeansPixel" && parseInt(kClusters, 10) <= 0){
+        alert("K Clusters must be greater than 0")
+        return;
+      }
+
+      let selectedPalette;
+      switch (ditheringMethod) {
+        case "16":
+          selectedPalette = palette16;
+          break;
+        case "32":
+          selectedPalette = palette32;
+          break;
+        case "216":
+          selectedPalette = palette216;
+          break;
+        case "4096":
+          selectedPalette = palette4096;
+          break;
+        case "grayscale":
+          selectedPalette = grayscale256;
+          break;
+        default:
+          selectedPalette = palette16; // Fallback
+      }
+
+      const img = new Image();
+      img.src = URL.createObjectURL(file);
+
+      img.onload = function () {
+        imgWidth = img.width;
+        imgHeight = img.height;
+
+        const maxWidth = 800;
+        const maxHeight = 800;
+        const scaleX = maxWidth / imgWidth;
+        const scaleY = maxHeight / imgHeight;
+
+        const scaledWidth = imgWidth * scaleX;
+        const scaledHeight = imgHeight * scaleY;
+
+        imgWidth = scaledWidth;
+        imgHeight = scaledHeight;
+
+        squareWidth = imgWidth / gridSize;
+        squareHeight = imgHeight / gridSize;
+
+        svgCanvas.setAttribute('width', imgWidth + 80);
+        svgCanvas.setAttribute('height', imgHeight + 80);
+
+        const imgElement = document.createElementNS("http://www.w3.org/2000/svg", "image");
+        imgElement.setAttribute('href', img.src);
+        imgElement.setAttribute('x', 40);
+        imgElement.setAttribute('y', 40);
+        imgElement.setAttribute('width', imgWidth);
+        imgElement.setAttribute('height', imgHeight);
+        svgCanvas.appendChild(imgElement);
+
+        storedImageData = [];
+        const canvasTemp = document.createElement("canvas");
+        canvasTemp.width = imgWidth;
+        canvasTemp.height = imgHeight;
+        const ctx = canvasTemp.getContext("2d");
+        ctx.drawImage(img, 0, 0, imgWidth, imgHeight);
+        storedImageData = ctx.getImageData(0, 0, imgWidth, imgHeight);
+
+        for (let row = 0; row < gridSize; row++) {
+          for (let col = 0; col < gridSize; col++) {
+            const sampleX = Math.floor(col * squareWidth);
+            const sampleY = Math.floor(row * squareHeight);
+
+            let squareColor;
+            if (samplingMethod === 'averagePixel') {
+              squareColor = getAverageColor(sampleX, sampleY, squareWidth, squareHeight);
+            } else if (samplingMethod === 'medianPixel') {
+              squareColor = getMedianColor(sampleX, sampleY, squareWidth, squareHeight);
+            } else if (samplingMethod === 'posterizePixel') {
+              squareColor = getPosterizedColor(sampleX, sampleY, squareWidth, squareHeight, posterizeNum)
+            } else if (samplingMethod === 'kMeansPixel') {
+              squareColor = getKMeansColor(sampleX, sampleY, squareWidth, squareHeight, kClusters);
+            } else if (samplingMethod === 'ditheringPixel') {
+              squareColor = getDitheredColor(sampleX, sampleY, squareWidth, squareHeight, selectedPalette);
+            } else {
+              squareColor = getFirstPixelColor(sampleX, sampleY);
+            }
+
+            const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            rect.setAttribute('x', 40 + col * squareWidth);
+            rect.setAttribute('y', 40 + row * squareHeight);
+            rect.setAttribute('width', squareWidth);
+            rect.setAttribute('height', squareHeight);
+            rect.setAttribute('fill', squareColor);
+            rect.setAttribute('stroke', gridColor);
+            rect.setAttribute('stroke-width', 1);
+            rect.setAttribute('data-color', squareColor);
+            svgCanvas.appendChild(rect);
+          }
+        }
+
+        clearLabels();
+
+        const fontSize = Math.max(10, 40 / gridSize);
+        for (let i = 0; i < gridSize; i++) {
+          const textX = 40 + i * squareWidth + squareWidth / 2 - 5;
+          const textY = 30;
+          const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          text.setAttribute('x', textX);
+          text.setAttribute('y', textY);
+          text.setAttribute('font-size', fontSize);
+          text.setAttribute('fill', 'black');
+          text.textContent = i + 1;
+          svgCanvas.appendChild(text);
+        }
+
+        for (let j = 0; j < gridSize; j++) {
+          const textX = 10;
+          const textY = 40 + j * squareHeight + squareHeight / 2 + 5;
+          const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          text.setAttribute('x', textX);
+          text.setAttribute('y', textY);
+          text.setAttribute('font-size', fontSize);
+          text.setAttribute('fill', 'black');
+          text.textContent = j + 1;
+          svgCanvas.appendChild(text);
+        }
+      };
+
+      svgCanvas.removeAttribute('title');
+      saveButton.style.display = 'inline-block';
+    }
+
+    function getFirstPixelColor(sampleX, sampleY) {
+      const index = (sampleY * imgWidth + sampleX) * 4;
+      const r = storedImageData.data[index];
+      const g = storedImageData.data[index + 1];
+      const b = storedImageData.data[index + 2];
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    function getAverageColor(sampleX, sampleY, width, height) {
+      let r = 0, g = 0, b = 0;
+      const numPixels = width * height;
+
+      for (let y = sampleY; y < sampleY + height; y++) {
+        for (let x = sampleX; x < sampleX + width; x++) {
+          const index = (y * imgWidth + x) * 4;
+          r += storedImageData.data[index];
+          g += storedImageData.data[index + 1];
+          b += storedImageData.data[index + 2];
+        }
+      }
+
+      r = Math.floor(r / numPixels);
+      g = Math.floor(g / numPixels);
+      b = Math.floor(b / numPixels);
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    function getMedianColor(sampleX, sampleY, width, height) {
+      let r = [], g = [], b = [];
+      for (let y = sampleY; y < sampleY + height; y++) {
+        for (let x = sampleX; x < sampleX + width; x++) {
+          const index = (y * imgWidth + x) * 4;
+          r.push(storedImageData.data[index]);
+          g.push(storedImageData.data[index + 1]);
+          b.push(storedImageData.data[index + 2]);
+        }
+      }
+
+      // Sort and get the median value for each color channel
+      r.sort((a, b) => a - b);
+      g.sort((a, b) => a - b);
+      b.sort((a, b) => a - b);
+
+      const medianR = r[Math.floor(r.length / 2)];
+      const medianG = g[Math.floor(g.length / 2)];
+      const medianB = b[Math.floor(b.length / 2)];
+
+      return `rgb(${medianR}, ${medianG}, ${medianB})`;
+    }
+
+    function posterizeColor(color, levels = 4) {
+      const factor = 255 / (levels - 1);
+      return Math.round(color / factor) * factor;
+    }
+
+    function getPosterizedColor(sampleX, sampleY, width, height, levels = 4) {
+      let r = 0, g = 0, b = 0;
+      const numPixels = width * height;
+
+      for (let y = sampleY; y < sampleY + height; y++) {
+        for (let x = sampleX; x < sampleX + width; x++) {
+          const index = (y * imgWidth + x) * 4;
+          r += storedImageData.data[index];
+          g += storedImageData.data[index + 1];
+          b += storedImageData.data[index + 2];
+        }
+      }
+
+      // Calculate the average color first
+      r = Math.floor(r / numPixels);
+      g = Math.floor(g / numPixels);
+      b = Math.floor(b / numPixels);
+
+      // Posterize the colors
+      r = posterizeColor(r, levels);
+      g = posterizeColor(g, levels);
+      b = posterizeColor(b, levels);
+
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    function getKMeansColor(sampleX, sampleY, width, height, k = 4) {
+      const colors = [];
+
+      // Collect the colors in the sample area
+      for (let y = sampleY; y < sampleY + height; y++) {
+        for (let x = sampleX; x < sampleX + width; x++) {
+          const index = (y * imgWidth + x) * 4;
+          const r = storedImageData.data[index];
+          const g = storedImageData.data[index + 1];
+          const b = storedImageData.data[index + 2];
+          colors.push([r, g, b]);
+        }
+      }
+
+      if (colors.length === 0) {
+        return "rgb(0, 0, 0)";
+      }
+
+      // Perform K-Means clustering
+      let centroids = initializeCentroids(colors, k);
+      let prevCentroids;
+      let iterations = 0;
+      const maxIterations = 10; // Prevent infinite loop
+
+      do {
+        prevCentroids = JSON.stringify(centroids);
+        const clusters = assignToClusters(colors, centroids);
+        centroids = calculateCentroids(clusters);
+
+        iterations++;
+        if (iterations > maxIterations) {
+          break;
+        }
+      } while (prevCentroids !== JSON.stringify(centroids));
+
+      // Find the most dominant cluster
+      const clusters = assignToClusters(colors, centroids);
+      let largestClusterIndex = clusters.map(c => c.length).indexOf(Math.max(...clusters.map(c => c.length)));
+
+      // If there's an empty cluster, fall back to the first centroid
+      const finalColor = centroids[largestClusterIndex] || centroids[0];
+
+      return `rgb(${finalColor[0]}, ${finalColor[1]}, ${finalColor[2]})`;
+    }
+
+    /** K-means helper functions **/
+
+    // Initialize centroids randomly from the colors
+    function initializeCentroids(colors, k) {
+      const centroids = [];
+      const usedIndices = new Set();
+
+      while (centroids.length < k) {
+        const index = Math.floor(Math.random() * colors.length);
+        if (!usedIndices.has(index)) {
+          centroids.push(colors[index]);
+          usedIndices.add(index);
+        }
+      }
+      return centroids;
+    }
+
+    // Assign each color to the closest centroid
+    function assignToClusters(colors, centroids) {
+      if (!centroids || centroids.length === 0) {
+        return [];
+      }
+
+      const clusters = Array.from({ length: centroids.length }, () => []);
+
+      colors.forEach(color => {
+        const closestIndex = findClosestCentroid(color, centroids);
+
+        if (closestIndex >= 0 && closestIndex < centroids.length) {
+          clusters[closestIndex].push(color);
+        }
+      });
+
+      return clusters;
+    }
+
+    // Calculate new centroids by averaging the colors in each cluster
+    function calculateCentroids(clusters) {
+      return clusters.map(cluster => {
+        if (cluster.length === 0) return [0, 0, 0]; // Avoid NaN errors
+
+        const sum = cluster.reduce((acc, color) => {
+          acc[0] += color[0];
+          acc[1] += color[1];
+          acc[2] += color[2];
+          return acc;
+        }, [0, 0, 0]);
+
+        const count = cluster.length;
+        return [Math.floor(sum[0] / count), Math.floor(sum[1] / count), Math.floor(sum[2] / count)];
+      });
+    }
+
+    // Find the closest centroid for a given color
+    function findClosestCentroid(color, centroids) {
+      let minDistance = Infinity;
+      let closestIndex = -1;
+
+      for (let i = 0; i < centroids.length; i++) {
+        const distance = getColorDistance(color, centroids[i]);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestIndex = i;
+        }
+      }
+
+      return closestIndex;
+    }
+
+    // Compute the Euclidean distance between two RGB colors
+    function getColorDistance(color1, color2) {
+      return Math.sqrt(
+        Math.pow(color1[0] - color2[0], 2) +
+        Math.pow(color1[1] - color2[1], 2) +
+        Math.pow(color1[2] - color2[2], 2)
+      );
+    }
+
+
+
+    function getDitheredColor(sampleX, sampleY, width, height, palette) {
+      const colors = [];
+
+      // Collect colors in the sample area
+      for (let y = sampleY; y < sampleY + height; y++) {
+        for (let x = sampleX; x < sampleX + width; x++) {
+          const index = (y * imgWidth + x) * 4;
+          const r = storedImageData.data[index];
+          const g = storedImageData.data[index + 1];
+          const b = storedImageData.data[index + 2];
+          colors.push([r, g, b]);
+        }
+      }
+
+      // Apply Floyd-Steinberg Dithering
+      let ditheredColor = applyFloydSteinberg(colors, palette);
+
+      return `rgb(${ditheredColor[0]}, ${ditheredColor[1]}, ${ditheredColor[2]})`;
+    }
+
+    // Floyd-Steinberg Dithering algorithm
+    function applyFloydSteinberg(colors, palette) {
+      const errorMatrix = Array.from({ length: colors.length }, () => [0, 0, 0]);
+
+      colors.forEach((color, i) => {
+        const quantizedColor = findClosestColor(color, palette);
+        errorMatrix[i] = [
+          color[0] - quantizedColor[0],
+          color[1] - quantizedColor[1],
+          color[2] - quantizedColor[2],
+        ];
+      });
+
+      // Reapply errors to neighboring pixels
+      let newColors = colors.map((color, i) => findClosestColor(color, palette));
+      return newColors[0]; // returning the first pixel for simplicity in this example
+    }
+
+    // Find the closest color in the palette
+    function findClosestColor(color, palette) {
+      let closestColor = palette[0];
+      let minDistance = Infinity;
+
+      palette.forEach(p => {
+        const distance = Math.pow(color[0] - p[0], 2) + Math.pow(color[1] - p[1], 2) + Math.pow(color[2] - p[2], 2);
+        if (distance < minDistance) {
+          closestColor = p;
+          minDistance = distance;
+        }
+      });
+
+      return closestColor;
+    }
+
+
+
+    function saveImage() {
+      const svgData = new XMLSerializer().serializeToString(svgCanvas);
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const svgImage = new Image();
+
+      svgImage.onload = function () {
+        canvas.width = svgImage.width;
+        canvas.height = svgImage.height;
+
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.drawImage(svgImage, 0, 0);
+
+        const fileName = prompt("Enter file name:", "generated_image");
+
+        if (fileName) {
+          const dataURL = canvas.toDataURL('image/jpeg');
+          const a = document.createElement('a');
+          a.href = dataURL;
+          a.download = `${fileName}.jpg`;
+          a.click();
+        }
+      };
+
+      svgImage.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgData);
+    }
+
+
+    svgCanvas.addEventListener('click', function (event) {
+      if (!storedImageData) return;
+
+      const clickX = event.offsetX - 40;
+      const clickY = event.offsetY - 40;
+
+      if (clickX < 0 || clickY < 0 || clickX >= imgWidth || clickY >= imgHeight) return;
+
+      // Find the clicked SVG rectangle
+      const clickedElement = document.elementFromPoint(event.clientX, event.clientY);
+
+      if (clickedElement && clickedElement.tagName === 'rect') {
+          // Read the fill color from the rendered SVG rectangle
+          let fillColor = clickedElement.getAttribute('fill');
+
+          // Convert RGB to Hex if needed
+          if (fillColor.startsWith("rgb")) {
+              fillColor = rgbToHex(fillColor);
+          }
+          
+          // Display the selected color
+          document.getElementById('selectedColor').value = fillColor;
+          document.getElementById('hexColor').textContent = fillColor;
+      }
+    });
+
+    // Helper function to convert rgb(r, g, b) to #rrggbb
+    function rgbToHex(rgb) {
+        const rgbValues = rgb.match(/\d+/g); // Extract numbers
+        return `#${rgbValues.map(c => parseInt(c).toString(16).padStart(2, '0')).join('')}`;
+    }
+
+    document.getElementById("samplingMethod").addEventListener("change", function () {
+        const ditheringContainer = document.getElementById("ditheringOptionsContainer");
+        const posterizeValuesContainer = document.getElementById("posterizeValuesContainer");
+        const kMeansClusterContainer = document.getElementById("kMeansClusterContainer");
+
+        if (this.value === "ditheringPixel") {
+          ditheringContainer.style.display = "block"; // Show when dithering is selected
+        } else {
+          ditheringContainer.style.display = "none";  // Hide otherwise
+        }
+
+        if (this.value === "posterizePixel") {
+          posterizeValuesContainer.style.display = "block"; // Show when posterize is selected
+        } else {
+          posterizeValuesContainer.style.display = "none";  // Hide otherwise
+        }
+
+        if (this.value === "kMeansPixel") {
+          kMeansClusterContainer.style.display = "block"; // Show when k means is selected
+        } else {
+          kMeansClusterContainer.style.display = "none";  // Hide otherwise
+        }
+    });
+    
+
+
+
+    function clearLabels() {
+      const existingLabels = svgCanvas.querySelectorAll('text');
+      existingLabels.forEach(label => label.remove());
+    }
+  </script>
+</body>
+
+</html>
