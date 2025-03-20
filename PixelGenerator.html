@@ -67,9 +67,15 @@
       display: block;
       margin-left: auto;
       margin-right: auto;
+      margin-bottom: 50px;
       max-width: 100%;
       height: auto;
       background-color: #fff;
+
+      max-width: 100vw;
+      /* Ensures SVG fits the screen width */
+      max-height: 100vh;
+      /* Prevents it from overflowing the viewport */
     }
 
     #saveButton {
@@ -78,12 +84,20 @@
     }
 
     #selectedColor,
-    #gridColor {
+    #gridColor,
+    #colorPicker {
       width: 50px;
       height: 50px;
       padding: 0;
       border: 1px solid #ccc;
       cursor: pointer;
+    }
+
+    .upload-container {
+      display: flex;
+      justify-content: center;
+      /* Centers horizontally */
+      align-items: center;
     }
   </style>
 </head>
@@ -92,10 +106,16 @@
   <h1>Pixel Grid Generator</h1>
 
   <div class="options-container">
-    <label>
-      Upload Image:
-      <input type="file" id="upload" accept="image/png, image/jpeg" />
-    </label><br />
+    <div class="upload-container">
+      <label style="display: flex; align-items: center; gap: 10px;">
+        Upload Image:
+        <input type="file" id="upload" accept="image/png, image/jpeg" />
+        <img id="imagePreview" src="" alt="Preview"
+          style="visibility: hidden; width: 40px; height: 40px; border: 1px solid #ccc; border-radius: 4px; object-fit: cover;">
+      </label>
+    </div>
+
+    <br />
 
     <label>
       Grid Size (Number of Squares):
@@ -105,6 +125,22 @@
       <label>
         Grid Color:</label>
       <input type="color" id="gridColor" value="#000000" />
+    </div>
+
+    <div>
+      <label>Grid Lines:</label>
+      <input type="radio" id="gridOn" name="gridToggle" value="on" checked>
+      <label for="gridOn">On</label>
+      <input type="radio" id="gridOff" name="gridToggle" value="off">
+      <label for="gridOff">Off</label>
+    </div>
+
+    <div>
+      <label style="margin-left: 26px;">Labels:</label>
+      <input type="radio" id="labelsOn" name="labelToggle" value="on" checked>
+      <label for="labelsOn">On</label>
+      <input type="radio" id="labelsOff" name="labelToggle" value="off">
+      <label for="labelsOff">Off</label>
     </div>
 
     <label for="samplingMethod">Sampling Method:</label>
@@ -120,12 +156,24 @@
     <div id="ditheringOptionsContainer" style="display: none;">
       <label for="ditheringMethod">Dithering Method:</label>
       <select id="ditheringMethod">
-          <option value="16">16 Colors</option>
-          <option value="32">32 Colors</option>
-          <option value="216">216 Colors</option>
-          <option value="4096">4096 Colors</option>
-          <option value="grayscale">Grayscale</option>
-      </select><br />   
+        <option value="16">16 Colors</option>
+        <option value="32">32 Colors</option>
+        <option value="216">216 Colors</option>
+        <option value="4096">4096 Colors</option>
+        <option value="grayscale">Grayscale</option>
+        <option value="custom">Custom Palette</option>
+      </select><br />
+
+      <div id="customPaletteContainer" style="display: none;">
+        <label for="colorList">Custom Colors:</label>
+        <div id="colorList"></div>
+        <div class="color-display">
+          <label>Pick a Color:</label>
+          <input type="color" id="colorPicker">
+        </div>
+        <button id="addColor">Add Color</button>
+        <button id="clearColors">Clear Palette</button>
+      </div>
     </div>
     <div id="posterizeValuesContainer" style="display: none;">
       <label>
@@ -178,28 +226,29 @@
 
     const palette216 = [];
     for (let r = 0; r <= 255; r += 51) {
-        for (let g = 0; g <= 255; g += 51) {
-            for (let b = 0; b <= 255; b += 51) {
-                palette216.push([r, g, b]);
-            }
+      for (let g = 0; g <= 255; g += 51) {
+        for (let b = 0; b <= 255; b += 51) {
+          palette216.push([r, g, b]);
         }
+      }
     }
 
     const palette4096 = [];
     for (let r = 0; r <= 255; r += 17) {
-        for (let g = 0; g <= 255; g += 17) {
-            for (let b = 0; b <= 255; b += 17) {
-                palette4096.push([r, g, b]);
-            }
+      for (let g = 0; g <= 255; g += 17) {
+        for (let b = 0; b <= 255; b += 17) {
+          palette4096.push([r, g, b]);
         }
+      }
     }
 
     const grayscale256 = Array.from({ length: 256 }, (_, i) => [i, i, i]);
 
+    const customPalette = [];
+    const colorList = document.getElementById("colorList");
+    const colorPicker = document.getElementById("colorPicker");
+
     function generatePixelGrid() {
-      // TODO: Input validation should be done on gridSize, posterizeNum, and kClusters at the least.  
-      // Too low of a gridSize, <1, causes an error.  Too high, >150, takes a long time... not as a big of an issue
-      // Too low of a posterizeNum and kClusters causes an error in their respective functions.
       const file = document.getElementById('upload').files[0];
       gridSize = parseInt(document.getElementById('gridSize').value, 10);
       const gridColor = document.getElementById('gridColor').value;
@@ -208,23 +257,34 @@
       const posterizeNum = document.getElementById('posterizeNum').value;
       const kClusters = document.getElementById('kClusters').value;
 
+      const gridEnabled = document.getElementById("gridOn").checked;
+      const labelsEnabled = document.getElementById("labelsOn").checked;
+
       if (!file) {
         alert('Please upload an image.');
         return;
       }
 
-      if (gridSize < 1){
+      if (parseInt(gridSize, 10) < 1) {
         alert("Grid Size must be a positive value!");
+        return;
+      } else if (parseInt(gridSize, 10) > 800) {
+        alert("Grid Size must be less than 800.");
         return;
       }
 
-      if (samplingMethod == "posterizePixel" && parseInt(posterizeNum, 10) <= 1){
+      if (samplingMethod == "posterizePixel" && parseInt(posterizeNum, 10) <= 1) {
         alert("Posterization Levels must be greater than 1")
         return;
       }
 
-      if (samplingMethod == "kMeansPixel" && parseInt(kClusters, 10) <= 0){
+      if (samplingMethod == "kMeansPixel" && parseInt(kClusters, 10) <= 0) {
         alert("K Clusters must be greater than 0")
+        return;
+      }
+
+      if (samplingMethod == "ditheringPixel" && ditheringMethod == "custom" && customPalette.length < 1) {
+        alert("Custom Palette must have at least 1 color!")
         return;
       }
 
@@ -245,6 +305,9 @@
         case "grayscale":
           selectedPalette = grayscale256;
           break;
+        case "custom":
+          selectedPalette = customPalette;
+          break;
         default:
           selectedPalette = palette16; // Fallback
       }
@@ -253,6 +316,10 @@
       img.src = URL.createObjectURL(file);
 
       img.onload = function () {
+        // Clear the svgCanvas before generating a new image
+        while (svgCanvas.firstChild) {
+          svgCanvas.removeChild(svgCanvas.firstChild);
+        }
         imgWidth = img.width;
         imgHeight = img.height;
 
@@ -270,13 +337,26 @@
         squareWidth = imgWidth / gridSize;
         squareHeight = imgHeight / gridSize;
 
-        svgCanvas.setAttribute('width', imgWidth + 80);
-        svgCanvas.setAttribute('height', imgHeight + 80);
+        if (labelsEnabled) {
+          svgCanvas.setAttribute('width', imgWidth + 80);
+          svgCanvas.setAttribute('height', imgHeight + 80);
+          svgCanvas.setAttribute('viewBox', `0 0 ${imgWidth + 80} ${imgHeight + 80}`);
+        } else {
+          svgCanvas.setAttribute('width', imgWidth);
+          svgCanvas.setAttribute('height', imgHeight);
+          svgCanvas.setAttribute('viewBox', `0 0 ${imgWidth} ${imgHeight}`);
+        }
 
         const imgElement = document.createElementNS("http://www.w3.org/2000/svg", "image");
         imgElement.setAttribute('href', img.src);
-        imgElement.setAttribute('x', 40);
-        imgElement.setAttribute('y', 40);
+
+        if (labelsEnabled) {
+          imgElement.setAttribute('x', 40);
+          imgElement.setAttribute('y', 40);
+        } else {
+          imgElement.setAttribute('x', 0);
+          imgElement.setAttribute('y', 0);
+        }
         imgElement.setAttribute('width', imgWidth);
         imgElement.setAttribute('height', imgHeight);
         svgCanvas.appendChild(imgElement);
@@ -310,13 +390,20 @@
             }
 
             const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-            rect.setAttribute('x', 40 + col * squareWidth);
-            rect.setAttribute('y', 40 + row * squareHeight);
+            if (labelsEnabled) {
+              rect.setAttribute('x', 40 + col * squareWidth);
+              rect.setAttribute('y', 40 + row * squareHeight);
+            } else {
+              rect.setAttribute('x', col * squareWidth);
+              rect.setAttribute('y', row * squareHeight);
+            }
             rect.setAttribute('width', squareWidth);
             rect.setAttribute('height', squareHeight);
             rect.setAttribute('fill', squareColor);
-            rect.setAttribute('stroke', gridColor);
-            rect.setAttribute('stroke-width', 1);
+            if (gridEnabled) {
+              rect.setAttribute('stroke', gridColor);
+              rect.setAttribute('stroke-width', 1);
+            }
             rect.setAttribute('data-color', squareColor);
             svgCanvas.appendChild(rect);
           }
@@ -324,29 +411,31 @@
 
         clearLabels();
 
-        const fontSize = Math.max(10, 40 / gridSize);
-        for (let i = 0; i < gridSize; i++) {
-          const textX = 40 + i * squareWidth + squareWidth / 2 - 5;
-          const textY = 30;
-          const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-          text.setAttribute('x', textX);
-          text.setAttribute('y', textY);
-          text.setAttribute('font-size', fontSize);
-          text.setAttribute('fill', 'black');
-          text.textContent = i + 1;
-          svgCanvas.appendChild(text);
-        }
+        if (labelsEnabled) {
+          const fontSize = Math.max(10, 40 / gridSize);
+          for (let i = 0; i < gridSize; i++) {
+            const textX = 40 + i * squareWidth + squareWidth / 2 - 5;
+            const textY = 30;
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute('x', textX);
+            text.setAttribute('y', textY);
+            text.setAttribute('font-size', fontSize);
+            text.setAttribute('fill', 'black');
+            text.textContent = i + 1;
+            svgCanvas.appendChild(text);
+          }
 
-        for (let j = 0; j < gridSize; j++) {
-          const textX = 10;
-          const textY = 40 + j * squareHeight + squareHeight / 2 + 5;
-          const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-          text.setAttribute('x', textX);
-          text.setAttribute('y', textY);
-          text.setAttribute('font-size', fontSize);
-          text.setAttribute('fill', 'black');
-          text.textContent = j + 1;
-          svgCanvas.appendChild(text);
+          for (let j = 0; j < gridSize; j++) {
+            const textX = 10;
+            const textY = 40 + j * squareHeight + squareHeight / 2 + 5;
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute('x', textX);
+            text.setAttribute('y', textY);
+            text.setAttribute('font-size', fontSize);
+            text.setAttribute('fill', 'black');
+            text.textContent = j + 1;
+            svgCanvas.appendChild(text);
+          }
         }
       };
 
@@ -650,8 +739,16 @@
     svgCanvas.addEventListener('click', function (event) {
       if (!storedImageData) return;
 
-      const clickX = event.offsetX - 40;
-      const clickY = event.offsetY - 40;
+      const labelsEnabled = document.getElementById("labelsOn").checked;
+
+      let clickX, clickY;
+      if (labelsEnabled) {
+        clickX = event.offsetX - 40;
+        clickY = event.offsetY - 40;
+      } else {
+        clickX = event.offsetX;
+        clickY = event.offsetY;
+      }
 
       if (clickX < 0 || clickY < 0 || clickX >= imgWidth || clickY >= imgHeight) return;
 
@@ -659,51 +756,151 @@
       const clickedElement = document.elementFromPoint(event.clientX, event.clientY);
 
       if (clickedElement && clickedElement.tagName === 'rect') {
-          // Read the fill color from the rendered SVG rectangle
-          let fillColor = clickedElement.getAttribute('fill');
+        // Read the fill color from the rendered SVG rectangle
+        let fillColor = clickedElement.getAttribute('fill');
 
-          // Convert RGB to Hex if needed
-          if (fillColor.startsWith("rgb")) {
-              fillColor = rgbToHex(fillColor);
-          }
-          
-          // Display the selected color
-          document.getElementById('selectedColor').value = fillColor;
-          document.getElementById('hexColor').textContent = fillColor;
+        // Convert RGB to Hex if needed
+        if (fillColor.startsWith("rgb")) {
+          fillColor = rgbToHex(fillColor);
+        }
+
+        // Display the selected color
+        document.getElementById('selectedColor').value = fillColor;
+        document.getElementById('hexColor').textContent = fillColor;
       }
     });
 
     // Helper function to convert rgb(r, g, b) to #rrggbb
     function rgbToHex(rgb) {
-        const rgbValues = rgb.match(/\d+/g); // Extract numbers
-        return `#${rgbValues.map(c => parseInt(c).toString(16).padStart(2, '0')).join('')}`;
+      const rgbValues = rgb.match(/\d+/g); // Extract numbers
+      return `#${rgbValues.map(c => parseInt(c).toString(16).padStart(2, '0')).join('')}`;
+    }
+
+    // Convert hex to RGB
+    function hexToRgb(hex) {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? [
+        parseInt(result[1], 16),
+        parseInt(result[2], 16),
+        parseInt(result[3], 16)
+      ] : null;
     }
 
     document.getElementById("samplingMethod").addEventListener("change", function () {
-        const ditheringContainer = document.getElementById("ditheringOptionsContainer");
-        const posterizeValuesContainer = document.getElementById("posterizeValuesContainer");
-        const kMeansClusterContainer = document.getElementById("kMeansClusterContainer");
+      const ditheringContainer = document.getElementById("ditheringOptionsContainer");
+      const posterizeValuesContainer = document.getElementById("posterizeValuesContainer");
+      const kMeansClusterContainer = document.getElementById("kMeansClusterContainer");
 
-        if (this.value === "ditheringPixel") {
-          ditheringContainer.style.display = "block"; // Show when dithering is selected
-        } else {
-          ditheringContainer.style.display = "none";  // Hide otherwise
-        }
+      if (this.value === "ditheringPixel") {
+        ditheringContainer.style.display = "block"; // Show when dithering is selected
+      } else {
+        ditheringContainer.style.display = "none";  // Hide otherwise
+      }
 
-        if (this.value === "posterizePixel") {
-          posterizeValuesContainer.style.display = "block"; // Show when posterize is selected
-        } else {
-          posterizeValuesContainer.style.display = "none";  // Hide otherwise
-        }
+      if (this.value === "posterizePixel") {
+        posterizeValuesContainer.style.display = "block"; // Show when posterize is selected
+      } else {
+        posterizeValuesContainer.style.display = "none";  // Hide otherwise
+      }
 
-        if (this.value === "kMeansPixel") {
-          kMeansClusterContainer.style.display = "block"; // Show when k means is selected
-        } else {
-          kMeansClusterContainer.style.display = "none";  // Hide otherwise
-        }
+      if (this.value === "kMeansPixel") {
+        kMeansClusterContainer.style.display = "block"; // Show when k means is selected
+      } else {
+        kMeansClusterContainer.style.display = "none";  // Hide otherwise
+      }
     });
-    
 
+    document.getElementById("ditheringMethod").addEventListener("change", function () {
+      const customPaletteContainer = document.getElementById("customPaletteContainer");
+      if (this.value === "custom") {
+        customPaletteContainer.style.display = "block";
+      } else {
+        customPaletteContainer.style.display = "none";
+      }
+    });
+
+    document.getElementById("addColor").addEventListener("click", function () {
+      const color = colorPicker.value; // Get hex value
+      const rgb = hexToRgb(color);
+      if (!rgb) return;
+
+      // Check if the color already exists in the palette
+      if (customPalette.some(existingColor =>
+        existingColor[0] === rgb[0] &&
+        existingColor[1] === rgb[1] &&
+        existingColor[2] === rgb[2])) {
+        return; // Do nothing if color is already present
+      }
+
+      customPalette.push(rgb);
+
+      // Update UI
+      const colorBox = document.createElement("div");
+      colorBox.style.backgroundColor = color;
+      colorBox.style.width = "30px";
+      colorBox.style.height = "30px";
+      colorBox.style.display = "inline-block";
+      colorBox.style.margin = "2px";
+      colorBox.title = color;
+
+      // Remove color on click
+      colorBox.addEventListener("click", function () {
+        customPalette.splice(customPalette.indexOf(rgb), 1);
+        colorBox.remove();
+      });
+
+      colorList.appendChild(colorBox);
+    });
+
+    document.getElementById("clearColors").addEventListener("click", function () {
+      customPalette.length = 0; // Clear array
+      colorList.innerHTML = ""; // Clear UI
+    });
+
+    document.addEventListener("keydown", function (event) {
+      // Check if the pressed key is "Enter"
+      if (event.key === "Enter") {
+        event.preventDefault(); // Prevent unexpected form submission
+
+        // Trigger the generate function
+        generatePixelGrid();
+      }
+    });
+
+    document.addEventListener("paste", function (event) {
+      const items = (event.clipboardData || event.originalEvent.clipboardData).items;
+
+      for (const item of items) {
+        if (item.kind === "file" && item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) {
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+
+            // Set the file input's files property
+            const fileInput = document.getElementById("upload");
+            fileInput.files = dataTransfer.files;
+
+            // Trigger a change event to notify any listeners
+            fileInput.dispatchEvent(new Event("change"));
+          }
+        }
+      }
+    });
+
+    document.getElementById("upload").addEventListener("change", function (event) {
+      const file = event.target.files[0]; // Get the first uploaded file
+
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const previewImg = document.getElementById("imagePreview");
+          previewImg.src = e.target.result;
+          previewImg.style.visibility = "visible"; // Show the image
+        };
+        reader.readAsDataURL(file); // Convert image to a data URL
+      }
+    });
 
 
     function clearLabels() {
