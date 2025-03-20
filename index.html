@@ -41,6 +41,44 @@
             margin: 50px auto;
             padding: 20px;
             text-align: center;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .project-summary {
+            text-align: left;
+            margin-top: 30px;
+        }
+
+        .project {
+            margin-bottom: 30px;
+            padding: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .project:last-child {
+            border-bottom: none;
+        }
+
+        h3 a {
+            text-decoration: none;
+            color: #007BFF;
+        }
+
+        h3 a:hover {
+            text-decoration: underline;
+        }
+
+        ul {
+            padding-left: 20px;
+            margin-top: 10px;
+            list-style-type: square;
+        }
+
+        ul li {
+            margin-bottom: 8px;
+            line-height: 1.6;
         }
     </style>
 </head>
@@ -53,7 +91,35 @@
 
     <div class="container">
         <h1>Welcome to Jack Anderson's Project Home Page</h1>
-        <p>Choose an option from above to get started.</p>
+        <p>Choose an option from the navigation bar above to get started.</p>
+        <h2>Available Projects</h2>
+        <div class="project-summary">
+            
+            <div class="project">
+                <h3><a href="Clock.html">Clock</a></h3>
+                <p>A digital clock that displays the current time. An elementary project I used to start learning JavaScript.</p>
+            </div>
+
+            <div class="project">
+                <h3><a href="FlashCards.html">Flash Cards</a></h3>
+                <p>A simple flash card app to help practice Math Skills. Final Individual Project for CS320. There is some interesting CSS with the Flash Cards.</p>
+            </div>
+
+            <div class="project">
+                <h3><a href="PixelGenerator.html">Pixel Generator</a></h3>
+                <p>A fun tool to create pixel art and export your creations. It allows you to specify many configurations to get the exact output you would like. Many different algorithms are implemented, including:</p>
+                <ul>
+                    <li><strong>First Pixel:</strong> Takes the first pixel in the sample space and uses that color for the entire grid space.</li>
+                    <li><strong>Average Pixel:</strong> Takes the average of all the pixels in the sample space. Creates a more refined but blurry output.</li>
+                    <li><strong>Median Pixel:</strong> Finds the median R, G, and B values in the sample space and combines them. This lowers the number of distinct colors used.</li>
+                    <li><strong>Posterize Pixel:</strong> Creates levels to separate each grid space into. This reduces the number of colors in the output and creates interesting designs.</li>
+                    <li><strong>K Means Clustering Pixel:</strong> Implements the K-Means algorithm to group pixels with similar colors together. Then each grid space is assigned a color based on this.</li>
+                    <li><strong>Dithering Pixel:</strong> Reduces the number of colors in the output by finding the closest color for each grid space that is in the predetermined palette. Currently, there are palettes with 16, 32, 216, 4096, and grayscale colors. There is also the ability to specify a custom palette.</li>
+                </ul>
+                <p>You can specify the number of grid spaces per row/column. There is the ability to disable the numeric labels and grids if they are getting in the way.</p>
+            </div>
+
+        </div>
     </div>
 </body>
 </html>
