@@ -165,7 +165,7 @@
       </select><br />
 
       <div id="customPaletteContainer" style="display: none;">
-        <label for="colorList">Custom Colors:</label>
+        <label>Custom Colors:</label>
         <div id="colorList"></div>
         <div class="color-display">
           <label>Pick a Color:</label>
@@ -359,7 +359,6 @@
         }
         imgElement.setAttribute('width', imgWidth);
         imgElement.setAttribute('height', imgHeight);
-        svgCanvas.appendChild(imgElement);
 
         storedImageData = [];
         const canvasTemp = document.createElement("canvas");
@@ -400,10 +399,14 @@
             rect.setAttribute('width', squareWidth);
             rect.setAttribute('height', squareHeight);
             rect.setAttribute('fill', squareColor);
+
+            rect.setAttribute('stroke-width', 1);
             if (gridEnabled) {
               rect.setAttribute('stroke', gridColor);
-              rect.setAttribute('stroke-width', 1);
+            }else{
+              rect.setAttribute('stroke', squareColor);
             }
+            
             rect.setAttribute('data-color', squareColor);
             svgCanvas.appendChild(rect);
           }
