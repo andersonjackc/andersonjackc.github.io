@@ -85,7 +85,8 @@
 
     #selectedColor,
     #gridColor,
-    #colorPicker {
+    #colorPicker,
+    #drawColor {
       width: 50px;
       height: 50px;
       padding: 0;
@@ -194,10 +195,22 @@
     <button id="saveButton" onclick="saveImage()">Save Image</button>
   </div>
 
-  <div class="color-display">
+
+  <label for="selectionMode">Click Mode:</label>
+  <select id="selectionMode">
+    <option value="selection">Select Pixel</option>
+    <option value="draw">Draw Pixel</option>
+  </select><br />
+
+  <div class="color-display" id="selectedColorContainer">
     <label>Selected Square Color:</label>
     <input type="color" id="selectedColor" disabled />
     <span id="hexColor">#000000</span>
+  </div>
+
+  <div class="color-display" id="drawColorContainer" style="display: none;">
+    <label>Draw Color:</label>
+    <input type="color" id="drawColor" value="#000000" />
   </div>
 
   <svg id="svgCanvas"></svg>
@@ -403,10 +416,10 @@
             rect.setAttribute('stroke-width', 1);
             if (gridEnabled) {
               rect.setAttribute('stroke', gridColor);
-            }else{
+            } else {
               rect.setAttribute('stroke', squareColor);
             }
-            
+
             rect.setAttribute('data-color', squareColor);
             svgCanvas.appendChild(rect);
           }
@@ -739,10 +752,12 @@
     }
 
 
-    svgCanvas.addEventListener('click', function (event) {
+    svgCanvas.addEventListener('mousedown', function (event) {
       if (!storedImageData) return;
 
       const labelsEnabled = document.getElementById("labelsOn").checked;
+      const gridEnabled = document.getElementById("gridOn").checked;
+      const selectionMode = document.getElementById("selectionMode").value;
 
       let clickX, clickY;
       if (labelsEnabled) {
@@ -759,17 +774,25 @@
       const clickedElement = document.elementFromPoint(event.clientX, event.clientY);
 
       if (clickedElement && clickedElement.tagName === 'rect') {
-        // Read the fill color from the rendered SVG rectangle
-        let fillColor = clickedElement.getAttribute('fill');
+        if (selectionMode === "selection") {
+          // Read the fill color from the rendered SVG rectangle
+          let fillColor = clickedElement.getAttribute('fill');
 
-        // Convert RGB to Hex if needed
-        if (fillColor.startsWith("rgb")) {
-          fillColor = rgbToHex(fillColor);
+          // Convert RGB to Hex if needed
+          if (fillColor.startsWith("rgb")) {
+            fillColor = rgbToHex(fillColor);
+          }
+          document.getElementById('selectedColor').value = fillColor;
+          document.getElementById('hexColor').textContent = fillColor;
+        } else {
+          // Get the selected color from the color picker
+          const drawColor = document.getElementById('drawColor').value;
+          clickedElement.setAttribute('fill', drawColor);
+          clickedElement.setAttribute('data-color', drawColor);
+          if (!gridEnabled) {
+            clickedElement.setAttribute('stroke', drawColor);
+          }
         }
-
-        // Display the selected color
-        document.getElementById('selectedColor').value = fillColor;
-        document.getElementById('hexColor').textContent = fillColor;
       }
     });
 
@@ -910,6 +933,16 @@
       const existingLabels = svgCanvas.querySelectorAll('text');
       existingLabels.forEach(label => label.remove());
     }
+
+    document.getElementById('selectionMode').addEventListener('change', function () {
+      if (this.value === 'selection') {
+        document.getElementById('drawColorContainer').style.display = 'none';
+        document.getElementById('selectedColorContainer').style.display = 'flex';
+      } else {
+        document.getElementById('drawColorContainer').style.display = 'flex';
+        document.getElementById('selectedColorContainer').style.display = 'none';
+      }
+    });
   </script>
 </body>
 
