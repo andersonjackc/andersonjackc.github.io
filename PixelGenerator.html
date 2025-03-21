@@ -787,6 +787,37 @@
         } else {
           // Get the selected color from the color picker
           const drawColor = document.getElementById('drawColor').value;
+
+          const mouseMoveHandler = function (moveEvent) {
+            const hoveredElement = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY);
+            if (hoveredElement && hoveredElement.tagName === 'rect') {
+              hoveredElement.setAttribute('fill', drawColor);
+              hoveredElement.setAttribute('data-color', drawColor);
+              if (!gridEnabled) {
+                hoveredElement.setAttribute('stroke', drawColor);
+              }
+            }
+          };
+
+          const removeEventListeners = function () {
+            svgCanvas.removeEventListener('mousemove', mouseMoveHandler);
+            svgCanvas.removeEventListener('mouseup', mouseUpHandler);
+            svgCanvas.removeEventListener('mouseleave', mouseLeaveHandler);
+          };
+
+          const mouseUpHandler = function () {
+            removeEventListeners();
+          };
+
+          const mouseLeaveHandler = function () {
+            removeEventListeners();
+          };
+
+          svgCanvas.addEventListener('mousemove', mouseMoveHandler);
+          svgCanvas.addEventListener('mouseup', mouseUpHandler);
+          svgCanvas.addEventListener('mouseleave', mouseLeaveHandler);
+
+          // Update the clicked element's color immediately
           clickedElement.setAttribute('fill', drawColor);
           clickedElement.setAttribute('data-color', drawColor);
           if (!gridEnabled) {
